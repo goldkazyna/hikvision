@@ -17,7 +17,7 @@ class WhisperController extends Controller
 
         $response = Http::withToken(config('services.openai.api_key'))
             ->withOptions(['verify' => false])
-            ->attach('file', file_get_contents($audioFile->getRealPath()), 'audio.webm')
+            ->attach('file', file_get_contents($audioFile->getRealPath()), 'audio.wav')
             ->post('https://api.openai.com/v1/audio/transcriptions', [
                 'model' => 'whisper-1',
                 'language' => 'ru',

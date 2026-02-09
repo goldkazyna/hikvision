@@ -15,25 +15,9 @@ let currentQuestion = 0;  // индекс текущего вопроса (0-4)
 let score = 0;            // кол-во правильных ответов
 const videoCache = {};    // кеш blob URL для видео
 
-// ===== Recording state =====
-let mediaRecorder = null;
-let audioChunks = [];
-let isRecording = false;
-let silenceTimer = null;
-let speechDetected = false;
-let analyser = null;
-let audioContext = null;
-let silenceCheckInterval = null;
+// ===== VAD recording state =====
+let vadInstance = null;
 let recordingMode = 'code'; // 'code' — код участника, 'answer' — ответ на вопрос
-let recordingStartTime = 0;
-let persistentStream = null; // постоянный поток микрофона
-let dataArray = null;        // массив данных для анализа
-const MIN_RECORD_TIME = 1000; // минимум 1 сек до срабатывания детектора тишины
-
-const SILENCE_THRESHOLD = 20;        // порог громкости
-const SILENCE_DURATION = 500;        // тишина 0.5 сек для остановки
-const MAX_RECORD_TIME = 15000;
-const SPEECH_CONFIRM_FRAMES = 3;     // 3 кадра подряд (300мс) выше порога = "речь"
 
 // ===== Subtitles data (intro / ok-code — статичные) =====
 const introSubs = [
@@ -61,7 +45,7 @@ async function preloadVideo(url) {
         const resp = await fetch(url);
         const blob = await resp.blob();
         videoCache[url] = URL.createObjectURL(blob);
-        console.log('Cached:', url);
+        // cached
         return videoCache[url];
     } catch (err) {
         console.warn('Preload failed:', url);
@@ -162,8 +146,8 @@ function playVideoSimple(src, subtitleText, onEnded) {
 async function startQuiz() {
     document.getElementById('start-screen').style.display = 'none';
 
-    // Инициализируем микрофон сразу (один раз)
-    await initMic();
+    // Инициализируем VAD (нейросеть для детекции голоса)
+    await initVAD();
 
     // Загружаем вопросы из API
     try {
@@ -220,7 +204,74 @@ function playIntroOnly() {
     };
 }
 
-// ===== Mic =====
+// ===== Mic (VAD) =====
+
+// Конвертация Float32Array → WAV blob для Whisper
+function audioToWav(float32Array, sampleRate) {
+    const numChannels = 1;
+    const bytesPerSample = 2;
+    const blockAlign = numChannels * bytesPerSample;
+    const byteRate = sampleRate * blockAlign;
+    const dataSize = float32Array.length * bytesPerSample;
+    const buffer = new ArrayBuffer(44 + dataSize);
+    const view = new DataView(buffer);
+
+    function writeStr(offset, str) {
+        for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+    }
+
+    writeStr(0, 'RIFF');
+    view.setUint32(4, 36 + dataSize, true);
+    writeStr(8, 'WAVE');
+    writeStr(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, numChannels, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, byteRate, true);
+    view.setUint16(32, blockAlign, true);
+    view.setUint16(34, 16, true);
+    writeStr(36, 'data');
+    view.setUint32(40, dataSize, true);
+
+    for (let i = 0; i < float32Array.length; i++) {
+        const s = Math.max(-1, Math.min(1, float32Array[i]));
+        view.setInt16(44 + i * 2, s * 0x7FFF, true);
+    }
+
+    return new Blob([buffer], { type: 'audio/wav' });
+}
+
+async function initVAD() {
+    try {
+        vadInstance = await vad.MicVAD.new({
+            positiveSpeechThreshold: 0.8,
+            negativeSpeechThreshold: 0.45,
+            minSpeechFrames: 6,
+            redemptionFrames: 10,
+            onSpeechStart: function() {
+                micCapsule.classList.add('recording');
+                micLabel.textContent = 'Запись...';
+                micHint.textContent = 'Слушаю';
+            },
+            onSpeechEnd: function(audio) {
+                micCapsule.classList.remove('recording');
+                micLabel.textContent = 'Обработка...';
+                micHint.textContent = 'Распознаём речь';
+
+                const wavBlob = audioToWav(audio, 16000);
+
+                if (recordingMode === 'answer') {
+                    sendAnswerToCheck(wavBlob);
+                } else {
+                    sendToWhisper(wavBlob);
+                }
+            }
+        });
+    } catch (err) {
+        console.error('VAD init error:', err);
+    }
+}
 
 function showMic() {
     recordingMode = 'code';
@@ -228,138 +279,32 @@ function showMic() {
     micCapsule.classList.remove('recording');
     micLabel.textContent = 'Говорите';
     micHint.textContent = 'Микрофон активен';
-    startRecording();
+    if (vadInstance) vadInstance.start();
 }
 
 function hideMic() {
     micPanel.classList.remove('visible');
+    if (vadInstance) vadInstance.pause();
 }
 
-// Инициализация микрофона один раз
-async function initMic() {
-    try {
-        persistentStream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl: false,
-                sampleRate: 16000,
-                channelCount: 1
-            }
-        });
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const source = audioContext.createMediaStreamSource(persistentStream);
-        analyser = audioContext.createAnalyser();
-        analyser.fftSize = 512;
-        source.connect(analyser);
-        dataArray = new Uint8Array(analyser.frequencyBinCount);
-        console.log('Микрофон инициализирован');
-    } catch (err) {
-        console.error('Mic init error:', err);
-    }
-}
-
-function startRecording() {
-    if (!persistentStream) return;
-
-    audioChunks = [];
-    speechDetected = false;
-    silenceTimer = null;
-    let speechFrames = 0;
-
-    mediaRecorder = new MediaRecorder(persistentStream, {
-        mimeType: 'audio/webm;codecs=opus',
-        audioBitsPerSecond: 128000
-    });
-
-    mediaRecorder.ondataavailable = function(e) {
-        if (e.data.size > 0) audioChunks.push(e.data);
-    };
-
-    mediaRecorder.onstop = function() {
-        clearInterval(silenceCheckInterval);
-
-        if (!speechDetected) {
-            console.log('Нет речи — пропуск');
-            return;
-        }
-
-        const blob = new Blob(audioChunks, { type: 'audio/webm' });
-        if (recordingMode === 'answer') {
-            sendAnswerToCheck(blob);
-        } else {
-            sendToWhisper(blob);
-        }
-    };
-
-    mediaRecorder.start();
-    isRecording = true;
-    recordingStartTime = Date.now();
-
-    micCapsule.classList.add('recording');
-    micLabel.textContent = 'Запись...';
-    micHint.textContent = 'Говорите в микрофон';
-
-    silenceCheckInterval = setInterval(function() {
-        analyser.getByteFrequencyData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
-        const avg = sum / dataArray.length;
-
-        // Лог уровня (F12 → Console)
-        if (avg > 5) console.log('Уровень:', Math.round(avg));
-
-        // Всегда отслеживаем голос
-        if (avg > SILENCE_THRESHOLD) {
-            speechFrames++;
-            if (speechFrames >= SPEECH_CONFIRM_FRAMES) {
-                speechDetected = true;
-            }
-            clearTimeout(silenceTimer);
-            silenceTimer = null;
-            micLabel.textContent = 'Запись...';
-        } else {
-            speechFrames = 0;
-        }
-
-        // Но останавливать запись можно только после MIN_RECORD_TIME
-        const elapsed = Date.now() - recordingStartTime;
-        if (elapsed < MIN_RECORD_TIME) return;
-
-        if (speechDetected && avg <= SILENCE_THRESHOLD && !silenceTimer) {
-            silenceTimer = setTimeout(function() {
-                if (isRecording) stopRecording();
-            }, SILENCE_DURATION);
-        }
-    }, 100);
-
-    setTimeout(function() {
-        if (isRecording && speechDetected) stopRecording();
-    }, MAX_RECORD_TIME);
-}
-
-function stopRecording() {
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-        isRecording = false;
-        mediaRecorder.stop();
-        clearInterval(silenceCheckInterval);
-        micCapsule.classList.remove('recording');
-        micLabel.textContent = 'Обработка...';
-        micHint.textContent = 'Распознаём речь';
-    }
+function showMicForAnswer() {
+    recordingMode = 'answer';
+    micPanel.classList.add('visible');
+    micCapsule.classList.remove('recording');
+    micLabel.textContent = 'Назовите ответ';
+    micHint.textContent = 'A, B или C';
+    if (vadInstance) vadInstance.start();
 }
 
 function toggleRecording() {
-    if (isRecording) {
-        stopRecording();
-    }
+    hideMic();
 }
 
 // ===== Whisper =====
 
 async function sendToWhisper(blob) {
     const formData = new FormData();
-    formData.append('audio', blob, 'recording.webm');
+    formData.append('audio', blob, 'recording.wav');
 
     try {
         const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
@@ -384,9 +329,7 @@ async function sendToWhisper(blob) {
             micLabel.textContent = 'Не удалось распознать';
             micHint.textContent = 'Попробуйте ещё раз';
             setTimeout(function() {
-                micLabel.textContent = 'Говорите';
-                micHint.textContent = 'Микрофон активен';
-                startRecording();
+                showMic();
             }, 2000);
         }
     } catch (err) {
@@ -401,7 +344,7 @@ async function sendToWhisper(blob) {
 async function sendAnswerToCheck(blob) {
     const q = questions[currentQuestion];
     const formData = new FormData();
-    formData.append('audio', blob, 'recording.webm');
+    formData.append('audio', blob, 'recording.wav');
     formData.append('option_a', q.options.a);
     formData.append('option_b', q.options.b);
     formData.append('option_c', q.options.c);
@@ -448,15 +391,6 @@ async function sendAnswerToCheck(blob) {
         micHint.textContent = 'Нажмите вариант вручную';
         hideMic();
     }
-}
-
-function showMicForAnswer() {
-    recordingMode = 'answer';
-    micPanel.classList.add('visible');
-    micCapsule.classList.remove('recording');
-    micLabel.textContent = 'Назовите ответ';
-    micHint.textContent = 'A, B или C';
-    startRecording();
 }
 
 // ===== Subtitles =====
@@ -524,8 +458,7 @@ function selectOption(opt) {
     const group = document.getElementById('options-group');
     if (group.querySelector('.wrong') || group.querySelector('.correct')) return;
 
-    // Останавливаем запись если идёт
-    if (isRecording) stopRecording();
+    // Останавливаем VAD
     hideMic();
 
     const isCorrect = opt.dataset.correct === 'true';

@@ -108,7 +108,9 @@
         </div>
     </div>
 
-    <script src="/js/quiz.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/ort.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.18/dist/bundle.min.js"></script>
+    <script src="/js/quiz.js?v=2"></script>
 
 </body>
 </html>
