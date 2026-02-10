@@ -38,33 +38,44 @@ class TelegramController extends Controller
 
         // Команда /start
         if (isset($message['text']) && str_starts_with($message['text'], '/start')) {
-            $this->handleStart($chatId, $telegramId, $message['from']);
+            $this->handleStart($chatId, $telegramId);
             return response()->json(['ok' => true]);
         }
 
         // Поделились контактом (номером телефона)
         if (isset($message['contact'])) {
-            $this->handleContact($chatId, $telegramId, $message['from'], $message['contact']);
+            $this->handleContact($chatId, $telegramId, $message['contact']);
+            return response()->json(['ok' => true]);
+        }
+
+        // Текстовое сообщение — может быть ФИО или email
+        if (isset($message['text'])) {
+            $this->handleText($chatId, $telegramId, $message['text']);
             return response()->json(['ok' => true]);
         }
 
         return response()->json(['ok' => true]);
     }
 
-    private function handleStart(int $chatId, int $telegramId, array $from): void
+    private function handleStart(int $chatId, int $telegramId): void
     {
-        // Проверяем — может уже зарегистрирован
         $user = User::where('telegram_id', $telegramId)->first();
 
-        if ($user) {
+        // Уже полностью зарегистрирован
+        if ($user && $user->code) {
             $this->sendMessage($chatId,
                 "Вы уже зарегистрированы!\n\nВаш код участника: <b>{$user->code}</b>\n\nНазовите этот код на стенде для начала викторины."
             );
             return;
         }
 
+        // Есть незавершённая регистрация — удаляем и начинаем заново
+        if ($user) {
+            $user->delete();
+        }
+
         $this->sendMessage($chatId,
-            "Привет! Я бот викторины Hikvision.\n\nПоделитесь номером телефона для получения кода участника.",
+            "Привет! Я бот викторины Hikvision.\n\nПоделитесь номером телефона для регистрации.",
             [
                 'keyboard' => [
                     [
@@ -77,40 +88,91 @@ class TelegramController extends Controller
         );
     }
 
-    private function handleContact(int $chatId, int $telegramId, array $from, array $contact): void
+    private function handleContact(int $chatId, int $telegramId, array $contact): void
     {
-        // Проверяем — может уже зарегистрирован
         $user = User::where('telegram_id', $telegramId)->first();
 
-        if ($user) {
+        // Уже полностью зарегистрирован
+        if ($user && $user->code) {
             $this->sendMessage($chatId,
                 "Вы уже зарегистрированы!\n\nВаш код участника: <b>{$user->code}</b>"
             );
             return;
         }
 
-        $phone = $contact['phone_number'];
-        $firstName = $contact['first_name'] ?? $from['first_name'] ?? '';
-        $lastName = $contact['last_name'] ?? $from['last_name'] ?? '';
+        // Удаляем старую незавершённую запись если есть
+        if ($user) {
+            $user->delete();
+        }
 
-        // Создаём пользователя
-        $user = User::create([
+        // Создаём пользователя с телефоном, без ФИО и email
+        User::create([
             'telegram_id' => $telegramId,
-            'phone' => $phone,
-            'first_name' => $firstName,
-            'last_name' => $lastName,
+            'phone' => $contact['phone_number'],
+            'first_name' => '',
+            'last_name' => '',
             'email' => '',
-            'code' => '', // временно
+            'code' => '',
         ]);
 
-        // Код = порядковый номер (id)
-        $user->code = str_pad($user->id, 3, '0', STR_PAD_LEFT);
-        $user->save();
-
-        // Убираем клавиатуру и показываем код
         $this->sendMessage($chatId,
-            "Спасибо, {$firstName}!\n\nВаш код участника: <b>{$user->code}</b>\n\nНазовите этот код на стенде для начала викторины.",
+            "Отлично! Теперь введите ваше <b>ФИО</b> (минимум 3 символа):",
             ['remove_keyboard' => true]
         );
+    }
+
+    private function handleText(int $chatId, int $telegramId, string $text): void
+    {
+        $user = User::where('telegram_id', $telegramId)->first();
+
+        if (!$user) {
+            $this->sendMessage($chatId, "Нажмите /start для начала регистрации.");
+            return;
+        }
+
+        // Уже полностью зарегистрирован
+        if ($user->code) {
+            $this->sendMessage($chatId,
+                "Вы уже зарегистрированы!\n\nВаш код участника: <b>{$user->code}</b>\n\nНазовите этот код на стенде для начала викторины."
+            );
+            return;
+        }
+
+        // Шаг 1: ждём ФИО (first_name пустой)
+        if ($user->first_name === '') {
+            $text = trim($text);
+
+            if (mb_strlen($text) < 3) {
+                $this->sendMessage($chatId, "ФИО слишком короткое. Введите минимум 3 символа:");
+                return;
+            }
+
+            // Разбиваем на имя и фамилию
+            $parts = preg_split('/\s+/', $text, 2);
+            $user->first_name = $parts[0];
+            $user->last_name = $parts[1] ?? '';
+            $user->save();
+
+            $this->sendMessage($chatId, "Спасибо! Теперь введите ваш <b>email</b>:");
+            return;
+        }
+
+        // Шаг 2: ждём email (email пустой)
+        if ($user->email === '') {
+            $text = trim($text);
+
+            if (!filter_var($text, FILTER_VALIDATE_EMAIL)) {
+                $this->sendMessage($chatId, "Некорректный email. Попробуйте ещё раз:");
+                return;
+            }
+
+            $user->email = $text;
+            $user->code = str_pad($user->id, 3, '0', STR_PAD_LEFT);
+            $user->save();
+
+            $this->sendMessage($chatId,
+                "Регистрация завершена! 🎉\n\nВаш код участника: <b>{$user->code}</b>\n\nНазовите этот код на стенде для начала викторины."
+            );
+        }
     }
 }
