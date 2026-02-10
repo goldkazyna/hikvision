@@ -15,6 +15,7 @@ let currentQuestion = 0;  // индекс текущего вопроса (0-4)
 let score = 0;            // кол-во правильных ответов
 let codeAttempts = 0;     // попытки ввода кода (макс 3)
 const videoCache = {};    // кеш blob URL для видео
+const reactionSubs = {};  // субтитры реакций по video path
 
 // ===== VAD recording state =====
 let vadInstance = null;
@@ -71,12 +72,13 @@ async function preloadAllVideos() {
         preloadVideo(q.video);
     });
 
-    // Реакции
+    // Реакции + субтитры
     try {
         const resp = await fetch('/quiz/reactions/all');
         const data = await resp.json();
-        data.videos.forEach(function(url) {
-            preloadVideo(url);
+        data.reactions.forEach(function(r) {
+            preloadVideo(r.video);
+            if (r.subtitle) reactionSubs[r.video] = r.subtitle;
         });
     } catch (err) {
         console.warn('Reactions preload failed');
@@ -578,6 +580,7 @@ async function playReaction(isCorrect, correctAnswer, onDone) {
         }
     } else {
         var wrongVideo = wrongVideoMap[correctAnswer] || '/videos/wrong-1.mp4';
-        playVideoSimple(wrongVideo, null, onDone);
+        var wrongSub = reactionSubs[wrongVideo] || null;
+        playVideoSimple(wrongVideo, wrongSub, onDone);
     }
 }

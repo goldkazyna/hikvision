@@ -223,9 +223,12 @@ class QuizController extends Controller
     public function allReactions()
     {
         $reactions = Reaction::all()->map(function ($r) {
-            return $r->video_path;
+            return [
+                'video' => $r->video_path,
+                'subtitle' => $r->subtitle_text,
+            ];
         });
 
-        return response()->json(['videos' => $reactions]);
+        return response()->json(['reactions' => $reactions]);
     }
 }
