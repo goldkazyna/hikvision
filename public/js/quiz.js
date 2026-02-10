@@ -267,7 +267,7 @@ async function initVAD() {
                 for (let i = 0; i < audio.length; i++) sum += Math.abs(audio[i]);
                 const avgVolume = sum / audio.length;
 
-                if (avgVolume < 0.05) {
+                if (avgVolume < 0.5) {
                     // Слишком тихо — сбрасываем микрофон
                     micCapsule.classList.remove('recording');
                     micLabel.textContent = 'Говорите громче';
