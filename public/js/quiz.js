@@ -270,7 +270,7 @@ async function initVAD() {
                 var duration = (audio.length / 16000).toFixed(2);
                 console.log('=== ГОЛОС ===  громкость: ' + avgVolume.toFixed(4) + '  |  длительность: ' + duration + 's');
 
-                if (avgVolume < 0.5) {
+                if (avgVolume < 0.005) {
                     // Слишком тихо — сбрасываем микрофон
                     micCapsule.classList.remove('recording');
                     micLabel.textContent = 'Говорите громче';
