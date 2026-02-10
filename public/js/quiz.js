@@ -143,11 +143,11 @@ function playVideoSimple(src, subtitleText, onEnded) {
 
 // ===== Start =====
 
+// Инициализируем VAD при загрузке страницы (в фоне)
+initVAD();
+
 async function startQuiz() {
     document.getElementById('start-screen').style.display = 'none';
-
-    // Инициализируем VAD (нейросеть для детекции голоса)
-    await initVAD();
 
     // Загружаем вопросы из API
     try {
@@ -245,7 +245,7 @@ function audioToWav(float32Array, sampleRate) {
 async function initVAD() {
     try {
         vadInstance = await vad.MicVAD.new({
-            positiveSpeechThreshold: 0.8,
+            positiveSpeechThreshold: 0.7,
             negativeSpeechThreshold: 0.45,
             minSpeechFrames: 6,
             redemptionFrames: 10,
@@ -409,8 +409,12 @@ function hideSubtitles() {
 
 function playCurrentQuestion() {
     if (currentQuestion >= questions.length) {
-        // Все вопросы пройдены
+        // Все вопросы пройдены — показываем результат на 5 сек, потом сброс
         showSubtitles('Игра окончена! Правильных ответов: ' + score + ' из ' + questions.length);
+        setTimeout(function() {
+            hideSubtitles();
+            resetQuiz();
+        }, 5000);
         return;
     }
 
@@ -480,6 +484,17 @@ function selectOption(opt) {
             playCurrentQuestion();
         });
     }, 2000);
+}
+
+// ===== Reset =====
+
+function resetQuiz() {
+    questions = [];
+    currentQuestion = 0;
+    score = 0;
+    hideOptions();
+    hideMic();
+    document.getElementById('start-screen').style.display = '';
 }
 
 // ===== Reactions =====
