@@ -267,6 +267,8 @@ async function initVAD() {
                 for (let i = 0; i < audio.length; i++) sum += Math.abs(audio[i]);
                 const avgVolume = sum / audio.length;
 
+                console.log('[MIC] avgVolume:', avgVolume.toFixed(4), '| samples:', audio.length, '| duration:', (audio.length / 16000).toFixed(2) + 's');
+
                 if (avgVolume < 0.5) {
                     // Слишком тихо — сбрасываем микрофон
                     micCapsule.classList.remove('recording');
