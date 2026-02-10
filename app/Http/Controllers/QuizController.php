@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Question;
 use App\Models\Reaction;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
@@ -120,6 +121,72 @@ class QuizController extends Controller
         return response()->json([
             'answer' => $gptAnswer,
             'transcript' => $transcript,
+        ]);
+    }
+
+    /**
+     * Проверить код участника
+     */
+    public function checkCode(Request $request)
+    {
+        $request->validate(['audio' => 'required|file']);
+
+        $audioFile = $request->file('audio');
+        $apiKey = config('services.openai.api_key');
+
+        // Whisper: распознаём код
+        $whisperResponse = Http::withToken($apiKey)
+            ->withOptions(['verify' => false])
+            ->attach('file', file_get_contents($audioFile->getRealPath()), 'audio.wav')
+            ->post('https://api.openai.com/v1/audio/transcriptions', [
+                'model' => 'whisper-1',
+                'language' => 'ru',
+                'prompt' => 'Код участника: 001, 002, 003, 005, 010, 015, 020, 050',
+            ]);
+
+        if (!$whisperResponse->successful()) {
+            return response()->json(['status' => 'error', 'transcript' => ''], 500);
+        }
+
+        $transcript = $whisperResponse->json('text');
+
+        if (!$transcript) {
+            return response()->json(['status' => 'not_found', 'transcript' => '']);
+        }
+
+        // Извлекаем цифры из транскрипта
+        preg_match_all('/\d+/', $transcript, $matches);
+        $code = null;
+
+        if (!empty($matches[0])) {
+            $num = intval(implode('', $matches[0]));
+            $code = str_pad($num, 3, '0', STR_PAD_LEFT);
+        }
+
+        if (!$code) {
+            return response()->json(['status' => 'not_found', 'transcript' => $transcript]);
+        }
+
+        // Ищем в БД
+        $user = User::where('code', $code)->first();
+
+        if (!$user) {
+            return response()->json(['status' => 'not_found', 'transcript' => $transcript, 'code' => $code]);
+        }
+
+        if ($user->code_used) {
+            return response()->json(['status' => 'used', 'transcript' => $transcript, 'code' => $code]);
+        }
+
+        // Помечаем код как использованный
+        $user->code_used = true;
+        $user->save();
+
+        return response()->json([
+            'status' => 'ok',
+            'transcript' => $transcript,
+            'code' => $code,
+            'user_name' => $user->first_name,
         ]);
     }
 

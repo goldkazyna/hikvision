@@ -13,6 +13,7 @@ const subtitlesText = document.getElementById('subtitles-text');
 let questions = [];       // 5 случайных вопросов из API
 let currentQuestion = 0;  // индекс текущего вопроса (0-4)
 let score = 0;            // кол-во правильных ответов
+let codeAttempts = 0;     // попытки ввода кода (макс 3)
 const videoCache = {};    // кеш blob URL для видео
 
 // ===== VAD recording state =====
@@ -54,8 +55,11 @@ async function preloadVideo(url) {
 }
 
 async function preloadAllVideos() {
-    // Статичные видео
+    // Статичные видео кода
     preloadVideo('/videos/ok-code.mp4');
+    preloadVideo('/videos/not-find-code.mp4');
+    preloadVideo('/videos/used-code.mp4');
+    preloadVideo('/videos/repeat-code.mp4');
 
     // Видео вопросов
     questions.forEach(function(q) {
@@ -150,6 +154,7 @@ async function startQuiz() {
     document.getElementById('start-screen').style.display = 'none';
     currentQuestion = 0;
     score = 0;
+    codeAttempts = 0;
 
     // Интро сразу, вопросы грузятся параллельно
     playIntroOnly();
@@ -316,32 +321,63 @@ async function sendToWhisper(blob) {
 
     try {
         const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
-        const resp = await fetch('/whisper', {
+        const resp = await fetch('/quiz/check-code', {
             method: 'POST',
             headers: { 'X-CSRF-TOKEN': csrfToken },
             body: formData
         });
 
         const data = await resp.json();
+        hideMic();
 
-        if (data.text) {
-            showSubtitles(data.text);
-            hideMic();
+        if (data.transcript) showSubtitles(data.transcript);
+
+        if (data.status === 'ok') {
+            // Код принят
             setTimeout(function() {
                 hideSubtitles();
                 playVideo('/videos/ok-code.mp4', okCodeSubs, function() {
                     playCurrentQuestion();
                 });
-            }, 2000);
+            }, 1500);
+        } else if (data.status === 'used') {
+            // Код уже использован
+            setTimeout(function() {
+                hideSubtitles();
+                playVideoSimple('/videos/used-code.mp4', 'Этот код уже был использован.', function() {
+                    resetQuiz();
+                });
+            }, 1500);
+        } else if (data.status === 'not_found') {
+            codeAttempts++;
+            if (codeAttempts >= 3) {
+                // 3 неудачные попытки — repeat-code
+                setTimeout(function() {
+                    hideSubtitles();
+                    playVideoSimple('/videos/repeat-code.mp4', 'Пожалуйста, получите код в Telegram боте и попробуйте снова.', function() {
+                        resetQuiz();
+                    });
+                }, 1500);
+            } else {
+                // Код не найден — ещё есть попытки
+                setTimeout(function() {
+                    hideSubtitles();
+                    playVideoSimple('/videos/not-find-code.mp4', 'Код не найден. Попробуйте ещё раз.', function() {
+                        showMic();
+                    });
+                }, 1500);
+            }
         } else {
+            // Ошибка распознавания
             micLabel.textContent = 'Не удалось распознать';
             micHint.textContent = 'Попробуйте ещё раз';
             setTimeout(function() {
+                hideSubtitles();
                 showMic();
             }, 2000);
         }
     } catch (err) {
-        console.error('Whisper error:', err);
+        console.error('Code check error:', err);
         micLabel.textContent = 'Ошибка сервера';
         micHint.textContent = 'Попробуйте перезагрузить';
     }
@@ -500,6 +536,7 @@ function resetQuiz() {
     questions = [];
     currentQuestion = 0;
     score = 0;
+    codeAttempts = 0;
     hideOptions();
     hideMic();
     document.getElementById('start-screen').style.display = '';
