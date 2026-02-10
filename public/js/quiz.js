@@ -256,11 +256,6 @@ async function initVAD() {
             negativeSpeechThreshold: 0.45,
             minSpeechFrames: 3,
             redemptionFrames: 8,
-            additionalAudioConstraints: {
-                autoGainControl: false,
-                noiseSuppression: false,
-                echoCancellation: false,
-            },
             onSpeechStart: function() {
                 console.log('[VAD] Speech START detected');
                 micCapsule.classList.add('recording');
@@ -268,8 +263,8 @@ async function initVAD() {
                 micHint.textContent = 'Слушаю';
             },
             onFrameProcessed: function(probs) {
-                if (probs.isSpeech > 0.5) {
-                    console.log('[VAD] confidence:', probs.isSpeech.toFixed(3));
+                if (probs.isSpeech > 0.3) {
+                    console.log('VAD: ' + probs.isSpeech.toFixed(3));
                 }
             },
             onSpeechEnd: function(audio) {
@@ -278,9 +273,10 @@ async function initVAD() {
                 for (let i = 0; i < audio.length; i++) sum += Math.abs(audio[i]);
                 const avgVolume = sum / audio.length;
 
-                console.log('[MIC] avgVolume:', avgVolume.toFixed(4), '| samples:', audio.length, '| duration:', (audio.length / 16000).toFixed(2) + 's');
+                var duration = (audio.length / 16000).toFixed(2);
+                console.log('=== ГОЛОС ===  громкость: ' + avgVolume.toFixed(4) + '  |  длительность: ' + duration + 's');
 
-                if (avgVolume < 0.01) {
+                if (avgVolume < 0.5) {
                     // Слишком тихо — сбрасываем микрофон
                     micCapsule.classList.remove('recording');
                     micLabel.textContent = 'Говорите громче';
