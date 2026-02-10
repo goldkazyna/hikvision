@@ -333,7 +333,6 @@ async function sendToWhisper(blob) {
         if (data.transcript) showSubtitles(data.transcript);
 
         if (data.status === 'ok') {
-            // Код принят
             setTimeout(function() {
                 hideSubtitles();
                 playVideo('/videos/ok-code.mp4', okCodeSubs, function() {
@@ -341,28 +340,25 @@ async function sendToWhisper(blob) {
                 });
             }, 1500);
         } else if (data.status === 'used') {
-            // Код уже использован
             setTimeout(function() {
                 hideSubtitles();
-                playVideoSimple('/videos/used-code.mp4', 'Этот код уже был использован.', function() {
+                playVideoSimple('/videos/used-code.mp4', 'Этот код уже был использован. Спасибо за участие!', function() {
                     resetQuiz();
                 });
             }, 1500);
         } else if (data.status === 'not_found') {
             codeAttempts++;
             if (codeAttempts >= 3) {
-                // 3 неудачные попытки — repeat-code
                 setTimeout(function() {
                     hideSubtitles();
-                    playVideoSimple('/videos/repeat-code.mp4', 'Пожалуйста, получите код в Telegram боте и попробуйте снова.', function() {
+                    playVideoSimple('/videos/repeat-code.mp4', 'К сожалению этот код не зарегистрирован. Пожалуйста, пройдите регистрацию по QR-коду на стенде.', function() {
                         resetQuiz();
                     });
                 }, 1500);
             } else {
-                // Код не найден — ещё есть попытки
                 setTimeout(function() {
                     hideSubtitles();
-                    playVideoSimple('/videos/not-find-code.mp4', 'Код не найден. Попробуйте ещё раз.', function() {
+                    playVideoSimple('/videos/not-find-code.mp4', 'К сожалению этот код не зарегистрирован. Попробуйте ещё раз.', function() {
                         showMic();
                     });
                 }, 1500);
