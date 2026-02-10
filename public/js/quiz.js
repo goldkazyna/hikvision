@@ -264,13 +264,20 @@ async function initVAD() {
                 const avgVolume = sum / audio.length;
 
                 if (avgVolume < 0.02) {
-                    // Слишком тихо — игнорируем
+                    // Слишком тихо — сбрасываем микрофон
+                    micCapsule.classList.remove('recording');
+                    micLabel.textContent = 'Говорите громче';
+                    micHint.textContent = 'Не расслышал';
+                    setTimeout(function() {
+                        micLabel.textContent = recordingMode === 'code' ? 'Говорите' : 'Назовите ответ';
+                        micHint.textContent = recordingMode === 'code' ? 'Микрофон активен' : 'A, B или C';
+                    }, 1500);
                     return;
                 }
 
                 micCapsule.classList.remove('recording');
                 micLabel.textContent = 'Обработка...';
-                micHint.textContent = 'Распознаём речь';
+                micHint.textContent = recordingMode === 'code' ? 'Проверяю код...' : 'Проверяю ответ...';
 
                 const wavBlob = audioToWav(audio, 16000);
 
@@ -330,7 +337,11 @@ async function sendToWhisper(blob) {
         const data = await resp.json();
         hideMic();
 
-        if (data.transcript) showSubtitles(data.transcript);
+        if (data.code) {
+            showSubtitles('Код: ' + data.code);
+        } else if (data.transcript) {
+            showSubtitles('Услышал: ' + data.transcript);
+        }
 
         if (data.status === 'ok') {
             setTimeout(function() {
@@ -405,7 +416,7 @@ async function sendAnswerToCheck(blob) {
 
         if (data.answer) {
             // Показываем что сказал пользователь
-            if (data.transcript) showSubtitles(data.transcript);
+            if (data.transcript) showSubtitles('Ваш ответ: ' + data.transcript);
 
             // Находим элемент с этим ответом и "нажимаем"
             const group = document.getElementById('options-group');
