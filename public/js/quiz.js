@@ -61,6 +61,11 @@ async function preloadAllVideos() {
     preloadVideo('/videos/used-code.mp4');
     preloadVideo('/videos/repeat-code.mp4');
 
+    // Wrong реакции
+    preloadVideo('/videos/wrong-1.mp4');
+    preloadVideo('/videos/wrong-2.mp4');
+    preloadVideo('/videos/wrong-3.mp4');
+
     // Видео вопросов
     questions.forEach(function(q) {
         preloadVideo(q.video);
@@ -534,10 +539,11 @@ function selectOption(opt) {
     }
 
     // Через 2 сек — реакция, потом следующий вопрос
+    var correctAnswer = questions[currentQuestion].correct;
     setTimeout(function() {
         hideOptions();
         hideSubtitles();
-        playReaction(isCorrect, function() {
+        playReaction(isCorrect, correctAnswer, function() {
             currentQuestion++;
             playCurrentQuestion();
         });
@@ -558,16 +564,20 @@ function resetQuiz() {
 
 // ===== Reactions =====
 
-async function playReaction(isCorrect, onDone) {
-    const type = isCorrect ? 'correct' : 'wrong';
+var wrongVideoMap = { a: '/videos/wrong-1.mp4', b: '/videos/wrong-2.mp4', c: '/videos/wrong-3.mp4' };
 
-    try {
-        const resp = await fetch('/quiz/reaction/' + type);
-        const data = await resp.json();
-
-        playVideoSimple(data.video, data.subtitle, onDone);
-    } catch (err) {
-        console.error('Reaction error:', err);
-        if (onDone) onDone();
+async function playReaction(isCorrect, correctAnswer, onDone) {
+    if (isCorrect) {
+        try {
+            const resp = await fetch('/quiz/reaction/correct');
+            const data = await resp.json();
+            playVideoSimple(data.video, data.subtitle, onDone);
+        } catch (err) {
+            console.error('Reaction error:', err);
+            if (onDone) onDone();
+        }
+    } else {
+        var wrongVideo = wrongVideoMap[correctAnswer] || '/videos/wrong-1.mp4';
+        playVideoSimple(wrongVideo, null, onDone);
     }
 }
