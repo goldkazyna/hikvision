@@ -252,7 +252,7 @@ function audioToWav(float32Array, sampleRate) {
 async function initVAD() {
     try {
         vadInstance = await vad.MicVAD.new({
-            positiveSpeechThreshold: 0.90,
+            positiveSpeechThreshold: 0.80,
             negativeSpeechThreshold: 0.45,
             minSpeechFrames: 3,
             redemptionFrames: 8,
@@ -267,7 +267,7 @@ async function initVAD() {
                 for (let i = 0; i < audio.length; i++) sum += Math.abs(audio[i]);
                 const avgVolume = sum / audio.length;
 
-                if (avgVolume < 0.03) {
+                if (avgVolume < 0.05) {
                     // Слишком тихо — сбрасываем микрофон
                     micCapsule.classList.remove('recording');
                     micLabel.textContent = 'Говорите громче';
