@@ -252,7 +252,7 @@ function audioToWav(float32Array, sampleRate) {
 async function initVAD() {
     try {
         vadInstance = await vad.MicVAD.new({
-            positiveSpeechThreshold: 0.95,
+            positiveSpeechThreshold: 0.90,
             negativeSpeechThreshold: 0.45,
             minSpeechFrames: 3,
             redemptionFrames: 8,
