@@ -156,8 +156,12 @@ async function startQuiz() {
     score = 0;
     codeAttempts = 0;
 
-    // Интро сразу, вопросы грузятся параллельно
-    playIntroOnly();
+    // // Интро сразу, вопросы грузятся параллельно
+    // playIntroOnly();
+
+    // Без интро — сразу микрофон для кода
+    showSubtitles('Назовите ваш код участника');
+    showMic();
 
     try {
         const resp = await fetch('/quiz/start');
@@ -263,7 +267,7 @@ async function initVAD() {
                 for (let i = 0; i < audio.length; i++) sum += Math.abs(audio[i]);
                 const avgVolume = sum / audio.length;
 
-                if (avgVolume < 0.02) {
+                if (avgVolume < 0.008) {
                     // Слишком тихо — сбрасываем микрофон
                     micCapsule.classList.remove('recording');
                     micLabel.textContent = 'Говорите громче';
