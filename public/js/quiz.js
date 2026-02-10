@@ -252,7 +252,7 @@ function audioToWav(float32Array, sampleRate) {
 async function initVAD() {
     try {
         vadInstance = await vad.MicVAD.new({
-            positiveSpeechThreshold: 0.80,
+            positiveSpeechThreshold: 0.90,
             negativeSpeechThreshold: 0.45,
             minSpeechFrames: 3,
             redemptionFrames: 8,
@@ -262,9 +262,15 @@ async function initVAD() {
                 echoCancellation: false,
             },
             onSpeechStart: function() {
+                console.log('[VAD] Speech START detected');
                 micCapsule.classList.add('recording');
                 micLabel.textContent = 'Запись...';
                 micHint.textContent = 'Слушаю';
+            },
+            onFrameProcessed: function(probs) {
+                if (probs.isSpeech > 0.5) {
+                    console.log('[VAD] confidence:', probs.isSpeech.toFixed(3));
+                }
             },
             onSpeechEnd: function(audio) {
                 // Проверяем громкость — если тихо (далёкий голос), игнорируем
@@ -274,7 +280,7 @@ async function initVAD() {
 
                 console.log('[MIC] avgVolume:', avgVolume.toFixed(4), '| samples:', audio.length, '| duration:', (audio.length / 16000).toFixed(2) + 's');
 
-                if (avgVolume < 0.5) {
+                if (avgVolume < 0.01) {
                     // Слишком тихо — сбрасываем микрофон
                     micCapsule.classList.remove('recording');
                     micLabel.textContent = 'Говорите громче';
