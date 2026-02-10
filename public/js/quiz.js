@@ -257,15 +257,9 @@ async function initVAD() {
             minSpeechFrames: 3,
             redemptionFrames: 8,
             onSpeechStart: function() {
-                console.log('[VAD] Speech START detected');
                 micCapsule.classList.add('recording');
                 micLabel.textContent = 'Запись...';
                 micHint.textContent = 'Слушаю';
-            },
-            onFrameProcessed: function(probs) {
-                if (probs.isSpeech > 0.3) {
-                    console.log('VAD: ' + probs.isSpeech.toFixed(3));
-                }
             },
             onSpeechEnd: function(audio) {
                 // Проверяем громкость — если тихо (далёкий голос), игнорируем
