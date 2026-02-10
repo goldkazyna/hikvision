@@ -270,7 +270,7 @@ async function initVAD() {
                     micHint.textContent = 'Не расслышал';
                     setTimeout(function() {
                         micLabel.textContent = recordingMode === 'code' ? 'Говорите' : 'Назовите ответ';
-                        micHint.textContent = recordingMode === 'code' ? 'Микрофон активен' : 'A, B или C';
+                        micHint.textContent = recordingMode === 'code' ? 'Микрофон активен' : 'Скажите: "Вариант А, Б или В"';
                     }, 1500);
                     return;
                 }
@@ -312,7 +312,7 @@ function showMicForAnswer() {
     micPanel.classList.add('visible');
     micCapsule.classList.remove('recording');
     micLabel.textContent = 'Назовите ответ';
-    micHint.textContent = 'A, B или C';
+    micHint.textContent = 'Скажите: "Вариант А, Б или В"';
     if (vadInstance) vadInstance.start();
 }
 
@@ -400,7 +400,7 @@ async function sendAnswerToCheck(blob) {
     formData.append('option_b', q.options.b);
     formData.append('option_c', q.options.c);
     // Подсказка для Whisper — список ожидаемых слов
-    formData.append('prompt_hint', 'вариант А, вариант Б, вариант В, ' + q.options.a + ', ' + q.options.b + ', ' + q.options.c);
+    formData.append('prompt_hint', 'Вариант А, вариант Б, вариант В, А, Б, В, Бэ, Вэ, первый, второй, третий, ' + q.options.a + ', ' + q.options.b + ', ' + q.options.c);
 
     try {
         const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
