@@ -148,22 +148,20 @@ initVAD();
 
 async function startQuiz() {
     document.getElementById('start-screen').style.display = 'none';
+    currentQuestion = 0;
+    score = 0;
 
-    // Загружаем вопросы из API
+    // Интро сразу, вопросы грузятся параллельно
+    playIntroOnly();
+
     try {
         const resp = await fetch('/quiz/start');
         const data = await resp.json();
         questions = data.questions;
-        currentQuestion = 0;
-        score = 0;
+        preloadAllVideos();
     } catch (err) {
         console.error('Failed to load questions:', err);
     }
-
-    // Preload все видео в фоне пока играет интро
-    preloadAllVideos();
-
-    playIntroOnly();
 }
 
 function playIntroOnly() {
