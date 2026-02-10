@@ -253,6 +253,16 @@ async function initVAD() {
                 micHint.textContent = 'Слушаю';
             },
             onSpeechEnd: function(audio) {
+                // Проверяем громкость — если тихо (далёкий голос), игнорируем
+                let sum = 0;
+                for (let i = 0; i < audio.length; i++) sum += Math.abs(audio[i]);
+                const avgVolume = sum / audio.length;
+
+                if (avgVolume < 0.02) {
+                    // Слишком тихо — игнорируем
+                    return;
+                }
+
                 micCapsule.classList.remove('recording');
                 micLabel.textContent = 'Обработка...';
                 micHint.textContent = 'Распознаём речь';
