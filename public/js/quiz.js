@@ -74,6 +74,9 @@ async function preloadAllVideos() {
     preloadVideo('/videos/wrong-2.mp4');
     preloadVideo('/videos/wrong-3.mp4');
 
+    // Последний correct
+    preloadVideo('/videos/last-correct.mp4');
+
     // Результаты
     preloadVideo('/videos/5-5.mp4');
     preloadVideo('/videos/3-5.mp4');
@@ -658,13 +661,19 @@ var wrongVideoMap = { a: '/videos/wrong-1.mp4', b: '/videos/wrong-2.mp4', c: '/v
 
 async function playReaction(isCorrect, correctAnswer, onDone) {
     if (isCorrect) {
-        try {
-            const resp = await fetch('/quiz/reaction/correct');
-            const data = await resp.json();
-            playVideoSimple(data.video, data.subtitle, onDone);
-        } catch (err) {
-            console.error('Reaction error:', err);
-            if (onDone) onDone();
+        // Последний вопрос — особая реакция
+        if (currentQuestion === questions.length - 1) {
+            var lastSub = reactionSubs['/videos/last-correct.mp4'] || null;
+            playVideoSimple('/videos/last-correct.mp4', lastSub, onDone);
+        } else {
+            try {
+                const resp = await fetch('/quiz/reaction/correct');
+                const data = await resp.json();
+                playVideoSimple(data.video, data.subtitle, onDone);
+            } catch (err) {
+                console.error('Reaction error:', err);
+                if (onDone) onDone();
+            }
         }
     } else {
         var wrongVideo = wrongVideoMap[correctAnswer] || '/videos/wrong-1.mp4';
