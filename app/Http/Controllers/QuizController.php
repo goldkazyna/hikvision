@@ -237,6 +237,15 @@ class QuizController extends Controller
     }
 
     /**
+     * Все видео вопросов (для прогрева кэша)
+     */
+    public function allQuestionVideos()
+    {
+        $videos = Question::pluck('video_question')->unique()->values();
+        return response()->json(['videos' => $videos]);
+    }
+
+    /**
      * Сохранить результат викторины
      */
     public function saveResult(Request $request)

@@ -77,36 +77,11 @@ async function preloadVideo(url) {
 }
 
 async function preloadAllVideos() {
-    // Статичные видео кода
-    preloadVideo('/videos/ok-code.mp4');
-    preloadVideo('/videos/not-find-code.mp4');
-    preloadVideo('/videos/used-code.mp4');
-    preloadVideo('/videos/repeat-code.mp4');
-
-    // Wrong реакции
-    preloadVideo('/videos/wrong-1.mp4');
-    preloadVideo('/videos/wrong-2.mp4');
-    preloadVideo('/videos/wrong-3.mp4');
-
-    // Последний correct
-    preloadVideo('/videos/last-correct.mp4');
-
-    // Результаты
-    preloadVideo('/videos/5-5.mp4');
-    preloadVideo('/videos/3-5.mp4');
-    preloadVideo('/videos/0-5.mp4');
-
-    // Видео вопросов
-    questions.forEach(function(q) {
-        preloadVideo(q.video);
-    });
-
-    // Реакции + субтитры
+    // Загружаем субтитры реакций из БД
     try {
         const resp = await fetch('/quiz/reactions/all');
         const data = await resp.json();
         data.reactions.forEach(function(r) {
-            preloadVideo(r.video);
             if (r.subtitle) reactionSubs[r.video] = r.subtitle;
         });
     } catch (err) {
@@ -118,10 +93,39 @@ function getCachedUrl(url) {
     return videoCache[url] || url;
 }
 
+// ===== HTTP cache warmup (на загрузке страницы) =====
+
+async function warmupCache() {
+    try {
+        // Все видео вопросов (30 шт) — просто fetch, браузер кэширует на диск
+        var resp = await fetch('/quiz/videos/all');
+        var data = await resp.json();
+        data.videos.forEach(function(url) {
+            fetch(url).catch(function() {});
+        });
+
+        // Статичные видео
+        ['/videos/ok-code.mp4', '/videos/not-find-code.mp4', '/videos/used-code.mp4',
+         '/videos/repeat-code.mp4', '/videos/wrong-1.mp4', '/videos/wrong-2.mp4',
+         '/videos/wrong-3.mp4', '/videos/last-correct.mp4', '/videos/5-5.mp4',
+         '/videos/3-5.mp4', '/videos/0-5.mp4', '/videos/intro.mp4'
+        ].forEach(function(url) {
+            fetch(url).catch(function() {});
+        });
+
+        console.log('[CACHE] Warmup started: ' + data.videos.length + ' question videos + static videos');
+    } catch (err) {
+        console.warn('[CACHE] Warmup failed:', err);
+    }
+}
+
+// Запускаем прогрев при загрузке страницы
+warmupCache();
+
 // ===== Video helpers =====
 
 function playVideo(src, subs, onEnded) {
-    videoActive.src = getCachedUrl(src);
+    videoActive.src = src;
     videoActive.muted = false;
     videoActive.loop = false;
     videoActive.load();
@@ -159,7 +163,7 @@ function playVideo(src, subs, onEnded) {
 
 // Простое воспроизведение с одним субтитром на всё видео
 function playVideoSimple(src, subtitleText, onEnded) {
-    videoActive.src = getCachedUrl(src);
+    videoActive.src = src;
     videoActive.muted = false;
     videoActive.loop = false;
     videoActive.load();
