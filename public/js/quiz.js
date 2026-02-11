@@ -196,12 +196,8 @@ async function startQuiz() {
     score = 0;
     codeAttempts = 0;
 
-    // // Интро сразу, вопросы грузятся параллельно
-    // playIntroOnly();
-
-    // Без интро — сразу микрофон для кода
-    showSubtitles('Назовите ваш код участника');
-    showMic();
+    // Интро сразу, вопросы грузятся параллельно
+    playIntroOnly();
 
     try {
         const resp = await fetch('/quiz/start?t=' + Date.now());
