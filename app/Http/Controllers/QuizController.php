@@ -16,9 +16,11 @@ class QuizController extends Controller
      */
     public function start()
     {
-        $questions = Question::inRandomOrder()
-            ->limit(5)
-            ->get()
+        $questions = Question::all()->shuffle()->take(5);
+
+        \Log::info('Quiz questions: ' . $questions->pluck('id')->implode(', '));
+
+        $questions = $questions
             ->map(function ($q) {
                 return [
                     'id' => $q->id,
