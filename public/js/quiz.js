@@ -12,6 +12,15 @@ const timerBar = document.getElementById('timerBar');
 const timerSeconds = document.getElementById('timerSeconds');
 const timerFill = document.getElementById('timerFill');
 
+// ===== Secret reset code =====
+var SECRET_CODE = '00557799';
+
+function checkSecretCode(transcript) {
+    if (!transcript) return false;
+    var digits = transcript.replace(/[^\d]/g, '');
+    return digits.indexOf(SECRET_CODE) !== -1;
+}
+
 // ===== Quiz state =====
 let questions = [];       // 5 случайных вопросов из API
 let currentQuestion = 0;  // индекс текущего вопроса (0-4)
@@ -368,6 +377,13 @@ async function sendToWhisper(blob) {
         const data = await resp.json();
         hideMic();
 
+        // Проверка секретного кода сброса
+        if (checkSecretCode(data.transcript)) {
+            hideSubtitles();
+            resetQuiz();
+            return;
+        }
+
         if (data.code) {
             showSubtitles('Код: ' + data.code);
         } else if (data.transcript) {
@@ -444,6 +460,15 @@ async function sendAnswerToCheck(blob) {
         const data = await resp.json();
 
         hideMic();
+
+        // Проверка секретного кода сброса
+        if (checkSecretCode(data.transcript)) {
+            stopTimer();
+            hideOptions();
+            hideSubtitles();
+            resetQuiz();
+            return;
+        }
 
         if (data.answer) {
             // Показываем что сказал пользователь
