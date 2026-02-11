@@ -582,8 +582,9 @@ function resumeTimer() {
     timerInterval = setInterval(function() {
         timerRemaining--;
         if (timerRemaining < 0) {
+            var cb = timerCallback;
             stopTimer();
-            if (timerCallback) timerCallback();
+            if (cb) cb();
             return;
         }
         timerSeconds.textContent = String(timerRemaining).padStart(2, '0');
