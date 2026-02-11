@@ -18,6 +18,9 @@ let currentQuestion = 0;  // индекс текущего вопроса (0-4)
 let score = 0;            // кол-во правильных ответов
 let codeAttempts = 0;     // попытки ввода кода (макс 3)
 let timerInterval = null; // интервал таймера
+let timerRemaining = 0;   // оставшееся время
+let timerTotal = 15;      // общее время
+let timerCallback = null;  // callback при таймауте
 const videoCache = {};    // кеш blob URL для видео
 const reactionSubs = {};  // субтитры реакций по video path
 
@@ -271,6 +274,7 @@ async function initVAD() {
                 micCapsule.classList.add('recording');
                 micLabel.textContent = 'Запись...';
                 micHint.textContent = 'Слушаю';
+                if (recordingMode === 'answer') pauseTimer();
             },
             onSpeechEnd: function(audio) {
                 // Проверяем громкость — если тихо (далёкий голос), игнорируем
@@ -286,6 +290,7 @@ async function initVAD() {
                     micCapsule.classList.remove('recording');
                     micLabel.textContent = 'Говорите громче';
                     micHint.textContent = 'Не расслышал';
+                    if (recordingMode === 'answer') resumeTimer();
                     setTimeout(function() {
                         micLabel.textContent = recordingMode === 'code' ? 'Говорите' : 'Назовите ответ';
                         micHint.textContent = recordingMode === 'code' ? 'Микрофон активен' : 'Скажите: "Вариант А, Б или В"';
@@ -452,6 +457,7 @@ async function sendAnswerToCheck(blob) {
             micHint.textContent = 'Попробуйте ещё раз';
             setTimeout(function() {
                 showMicForAnswer();
+                resumeTimer();
             }, 2000);
         }
     } catch (err) {
@@ -459,6 +465,7 @@ async function sendAnswerToCheck(blob) {
         micLabel.textContent = 'Ошибка сервера';
         micHint.textContent = 'Нажмите вариант вручную';
         hideMic();
+        resumeTimer();
     }
 }
 
@@ -546,36 +553,46 @@ function hideOptions() {
 // ===== Timer =====
 
 function startTimer(seconds, onTimeout) {
-    // Сброс
     stopTimer();
-    var remaining = seconds;
-    timerSeconds.textContent = String(remaining).padStart(2, '0');
+    timerRemaining = seconds;
+    timerTotal = seconds;
+    timerCallback = onTimeout;
+    timerSeconds.textContent = String(timerRemaining).padStart(2, '0');
     timerSeconds.style.color = '#7fdbff';
     timerSeconds.style.textShadow = 'none';
     timerFill.style.transform = 'scaleX(1)';
     timerBar.classList.add('visible');
+    resumeTimer();
+}
 
+function resumeTimer() {
+    if (timerInterval) return;
     timerInterval = setInterval(function() {
-        remaining--;
-        if (remaining < 0) {
+        timerRemaining--;
+        if (timerRemaining < 0) {
             stopTimer();
-            if (onTimeout) onTimeout();
+            if (timerCallback) timerCallback();
             return;
         }
-        timerSeconds.textContent = String(remaining).padStart(2, '0');
-        timerFill.style.transform = 'scaleX(' + (remaining / seconds) + ')';
-        if (remaining <= 5) {
+        timerSeconds.textContent = String(timerRemaining).padStart(2, '0');
+        timerFill.style.transform = 'scaleX(' + (timerRemaining / timerTotal) + ')';
+        if (timerRemaining <= 5) {
             timerSeconds.style.color = '#ff6b6b';
             timerSeconds.style.textShadow = '0 0 15px rgba(255,80,80,0.5)';
         }
     }, 1000);
 }
 
-function stopTimer() {
+function pauseTimer() {
     if (timerInterval) {
         clearInterval(timerInterval);
         timerInterval = null;
     }
+}
+
+function stopTimer() {
+    pauseTimer();
+    timerCallback = null;
     timerBar.classList.remove('visible');
 }
 

@@ -493,7 +493,7 @@ body {
 /* ===== Options (answers) ===== */
 .options-panel {
     position: fixed;
-    bottom: 85px;
+    bottom: 100px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 10;
