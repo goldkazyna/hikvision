@@ -200,7 +200,7 @@ async function startQuiz() {
     showMic();
 
     try {
-        const resp = await fetch('/quiz/start');
+        const resp = await fetch('/quiz/start?t=' + Date.now());
         const data = await resp.json();
         questions = data.questions;
         preloadAllVideos();

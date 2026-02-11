@@ -33,7 +33,8 @@ class QuizController extends Controller
                 ];
             });
 
-        return response()->json(['questions' => $questions]);
+        return response()->json(['questions' => $questions])
+            ->header('Cache-Control', 'no-store, no-cache');
     }
 
     /**
