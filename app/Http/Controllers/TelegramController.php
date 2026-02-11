@@ -167,7 +167,7 @@ class TelegramController extends Controller
             }
 
             $user->email = $text;
-            $user->code = strval($user->id + 99);
+            $user->code = strval($user->id + 114);
             $user->save();
 
             $this->sendMessage($chatId,
