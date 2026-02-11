@@ -6,6 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Hikvision Quiz</title>
     <link rel="stylesheet" href="/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
 
@@ -36,6 +37,17 @@
                 <span class="label">Старт</span>
             </div>
         </button>
+    </div>
+
+    <!-- Timer bar -->
+    <div class="timer-bar" id="timerBar">
+        <span class="seconds" id="timerSeconds">15</span>
+        <div class="bar-wrap">
+            <div class="bar-track">
+                <div class="bar-fill" id="timerFill"></div>
+            </div>
+            <span class="bar-label">Время на ответ</span>
+        </div>
     </div>
 
     <!-- Subtitles -->
@@ -110,7 +122,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.14.0/dist/ort.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@ricky0123/vad-web@0.0.18/dist/bundle.min.js"></script>
-    <script src="/js/quiz.js?v=7"></script>
+    <script src="/js/quiz.js?v=8"></script>
 
 </body>
 </html>

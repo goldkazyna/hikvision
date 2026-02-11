@@ -8,12 +8,16 @@ const micLabel = document.getElementById('mic-label');
 const micHint = document.getElementById('mic-hint');
 const subtitles = document.getElementById('subtitles');
 const subtitlesText = document.getElementById('subtitles-text');
+const timerBar = document.getElementById('timerBar');
+const timerSeconds = document.getElementById('timerSeconds');
+const timerFill = document.getElementById('timerFill');
 
 // ===== Quiz state =====
 let questions = [];       // 5 случайных вопросов из API
 let currentQuestion = 0;  // индекс текущего вопроса (0-4)
 let score = 0;            // кол-во правильных ответов
 let codeAttempts = 0;     // попытки ввода кода (макс 3)
+let timerInterval = null; // интервал таймера
 const videoCache = {};    // кеш blob URL для видео
 const reactionSubs = {};  // субтитры реакций по video path
 
@@ -513,22 +517,75 @@ function renderOptions(q) {
         group.appendChild(div);
     });
 
-    // Показываем субтитр вопроса + варианты + микрофон сразу
+    // Показываем субтитр вопроса + варианты + микрофон + таймер
     showSubtitles(q.subtitle);
     document.getElementById('options-panel').classList.add('visible');
     showMicForAnswer();
+    startTimer(15, function() {
+        // Время вышло — показываем правильный ответ
+        hideMic();
+        var group = document.getElementById('options-group');
+        if (group.querySelector('.wrong') || group.querySelector('.correct')) return;
+        group.querySelector('[data-correct="true"]').classList.add('correct');
+        var correctAnswer = questions[currentQuestion].correct;
+        setTimeout(function() {
+            hideOptions();
+            hideSubtitles();
+            playReaction(false, correctAnswer, function() {
+                currentQuestion++;
+                playCurrentQuestion();
+            });
+        }, 2000);
+    });
 }
 
 function hideOptions() {
     document.getElementById('options-panel').classList.remove('visible');
 }
 
+// ===== Timer =====
+
+function startTimer(seconds, onTimeout) {
+    // Сброс
+    stopTimer();
+    var remaining = seconds;
+    timerSeconds.textContent = String(remaining).padStart(2, '0');
+    timerSeconds.style.color = '#7fdbff';
+    timerSeconds.style.textShadow = 'none';
+    timerFill.style.transform = 'scaleX(1)';
+    timerBar.classList.add('visible');
+
+    timerInterval = setInterval(function() {
+        remaining--;
+        if (remaining < 0) {
+            stopTimer();
+            if (onTimeout) onTimeout();
+            return;
+        }
+        timerSeconds.textContent = String(remaining).padStart(2, '0');
+        timerFill.style.transform = 'scaleX(' + (remaining / seconds) + ')';
+        if (remaining <= 5) {
+            timerSeconds.style.color = '#ff6b6b';
+            timerSeconds.style.textShadow = '0 0 15px rgba(255,80,80,0.5)';
+        }
+    }, 1000);
+}
+
+function stopTimer() {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+    timerBar.classList.remove('visible');
+}
+
 function selectOption(opt) {
     const group = document.getElementById('options-group');
     if (group.querySelector('.wrong') || group.querySelector('.correct')) return;
 
-    // Останавливаем VAD
+    // Останавливаем VAD и таймер
     hideMic();
+    stopTimer();
 
     const isCorrect = opt.dataset.correct === 'true';
 
@@ -561,6 +618,7 @@ function resetQuiz() {
     codeAttempts = 0;
     hideOptions();
     hideMic();
+    stopTimer();
     document.getElementById('start-screen').style.display = '';
 }
 
