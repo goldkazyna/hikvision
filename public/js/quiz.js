@@ -12,6 +12,9 @@ const timerBar = document.getElementById('timerBar');
 const timerSeconds = document.getElementById('timerSeconds');
 const timerFill = document.getElementById('timerFill');
 
+// ===== ONNX WASM path =====
+ort.env.wasm.wasmPaths = '/js/';
+
 // ===== Secret reset code =====
 var SECRET_CODE = '00557799';
 
