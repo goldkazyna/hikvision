@@ -74,6 +74,11 @@ async function preloadAllVideos() {
     preloadVideo('/videos/wrong-2.mp4');
     preloadVideo('/videos/wrong-3.mp4');
 
+    // Результаты
+    preloadVideo('/videos/5-5.mp4');
+    preloadVideo('/videos/3-5.mp4');
+    preloadVideo('/videos/0-5.mp4');
+
     // Видео вопросов
     questions.forEach(function(q) {
         preloadVideo(q.video);
@@ -485,12 +490,19 @@ function hideSubtitles() {
 
 function playCurrentQuestion() {
     if (currentQuestion >= questions.length) {
-        // Все вопросы пройдены — показываем результат на 5 сек, потом сброс
-        showSubtitles('Игра окончена! Правильных ответов: ' + score + ' из ' + questions.length);
-        setTimeout(function() {
-            hideSubtitles();
+        // Все вопросы пройдены — показываем видео результата
+        var resultVideo;
+        if (score === 5) {
+            resultVideo = '/videos/5-5.mp4';
+        } else if (score >= 3) {
+            resultVideo = '/videos/3-5.mp4';
+        } else {
+            resultVideo = '/videos/0-5.mp4';
+        }
+        var resultSub = reactionSubs[resultVideo] || ('Правильных ответов: ' + score + ' из 5');
+        playVideoSimple(resultVideo, resultSub, function() {
             resetQuiz();
-        }, 5000);
+        });
         return;
     }
 
