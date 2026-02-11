@@ -29,6 +29,8 @@ let questions = [];       // 5 случайных вопросов из API
 let currentQuestion = 0;  // индекс текущего вопроса (0-4)
 let score = 0;            // кол-во правильных ответов
 let codeAttempts = 0;     // попытки ввода кода (макс 3)
+let userCode = '';        // код участника для сохранения результата
+let userAnswers = [];     // ответы пользователя
 let timerInterval = null; // интервал таймера
 let timerRemaining = 0;   // оставшееся время
 let timerTotal = 15;      // общее время
@@ -396,6 +398,7 @@ async function sendToWhisper(blob) {
         }
 
         if (data.status === 'ok') {
+            userCode = data.code;
             setTimeout(function() {
                 hideSubtitles();
                 playVideo('/videos/ok-code.mp4', okCodeSubs, function() {
@@ -523,6 +526,9 @@ function hideSubtitles() {
 
 function playCurrentQuestion() {
     if (currentQuestion >= questions.length) {
+        // Сохраняем результат в БД
+        saveQuizResult();
+
         // Все вопросы пройдены — показываем видео результата
         var resultVideo;
         if (score === 5) {
@@ -580,6 +586,12 @@ function renderOptions(q) {
         if (group.querySelector('.wrong') || group.querySelector('.correct')) return;
         group.querySelector('[data-correct="true"]').classList.add('correct');
         var correctAnswer = questions[currentQuestion].correct;
+        userAnswers.push({
+            question: currentQuestion + 1,
+            answered: 'timeout',
+            correct: correctAnswer,
+            is_correct: false,
+        });
         setTimeout(function() {
             hideOptions();
             hideSubtitles();
@@ -660,6 +672,13 @@ function selectOption(opt) {
         group.querySelector('[data-correct="true"]').classList.add('correct');
     }
 
+    userAnswers.push({
+        question: currentQuestion + 1,
+        answered: opt.dataset.answer,
+        correct: questions[currentQuestion].correct,
+        is_correct: isCorrect,
+    });
+
     // Через 2 сек — реакция, потом следующий вопрос
     var correctAnswer = questions[currentQuestion].correct;
     setTimeout(function() {
@@ -679,10 +698,33 @@ function resetQuiz() {
     currentQuestion = 0;
     score = 0;
     codeAttempts = 0;
+    userCode = '';
+    userAnswers = [];
     hideOptions();
     hideMic();
     stopTimer();
     document.getElementById('start-screen').style.display = '';
+}
+
+// ===== Save result =====
+
+function saveQuizResult() {
+    if (!userCode) return;
+    var csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+    fetch('/quiz/save-result', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': csrfToken,
+        },
+        body: JSON.stringify({
+            code: userCode,
+            score: score,
+            answers: userAnswers,
+        }),
+    }).catch(function(err) {
+        console.error('Save result error:', err);
+    });
 }
 
 // ===== Reactions =====

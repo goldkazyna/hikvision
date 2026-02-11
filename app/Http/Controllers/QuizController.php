@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Question;
+use App\Models\QuizSession;
 use App\Models\Reaction;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -230,5 +231,33 @@ class QuizController extends Controller
         });
 
         return response()->json(['reactions' => $reactions]);
+    }
+
+    /**
+     * Сохранить результат викторины
+     */
+    public function saveResult(Request $request)
+    {
+        $request->validate([
+            'code' => 'required|string',
+            'score' => 'required|integer|min:0|max:5',
+            'answers' => 'nullable|array',
+        ]);
+
+        $user = User::where('code', $request->input('code'))->first();
+
+        if (!$user) {
+            return response()->json(['error' => 'User not found'], 404);
+        }
+
+        $session = QuizSession::create([
+            'user_id' => $user->id,
+            'score' => $request->input('score'),
+            'answers' => $request->input('answers'),
+            'started_at' => now(),
+            'finished_at' => now(),
+        ]);
+
+        return response()->json(['ok' => true, 'session_id' => $session->id]);
     }
 }
