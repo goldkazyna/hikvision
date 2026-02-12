@@ -61,7 +61,7 @@ body {
     left: 50%;
     transform: translateX(-50%);
     width: 100%;
-    max-width: 1400px;
+    max-width: 2500px;
     z-index: 10;
     display: flex;
     align-items: center;
@@ -70,7 +70,7 @@ body {
 }
 
 .header img {
-    height: 40px;
+    height: 140px;
     object-fit: contain;
 }
 
