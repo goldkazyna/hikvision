@@ -270,6 +270,27 @@ class QuizController extends Controller
             'finished_at' => now(),
         ]);
 
+        // Отправляем результат в Telegram
+        $this->sendTelegramResult($user, $request->input('score'));
+
         return response()->json(['ok' => true, 'session_id' => $session->id]);
+    }
+
+    private function sendTelegramResult(User $user, int $score): void
+    {
+        if (!$user->telegram_id) return;
+
+        $emoji = $score === 5 ? '🏆' : ($score >= 3 ? '👏' : '💪');
+        $text = "{$emoji} Результаты викторины Hikvision\n\n"
+            . "Привет, {$user->first_name}!\n"
+            . "Ваш результат: <b>{$score} из 5</b> правильных ответов.\n\n"
+            . "Спасибо за участие!";
+
+        Http::withOptions(['verify' => false])
+            ->post('https://api.telegram.org/bot' . config('services.telegram.bot_token') . '/sendMessage', [
+                'chat_id' => $user->telegram_id,
+                'text' => $text,
+                'parse_mode' => 'HTML',
+            ]);
     }
 }
