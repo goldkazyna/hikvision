@@ -322,6 +322,9 @@ async function initVAD() {
                     return;
                 }
 
+                // Паузим VAD пока идёт отправка
+                if (vadInstance) vadInstance.pause();
+
                 micCapsule.classList.remove('recording');
                 micLabel.textContent = 'Обработка...';
                 micHint.textContent = recordingMode === 'code' ? 'Проверяю код...' : 'Проверяю ответ...';
