@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Http;
 
 class TelegramController extends Controller
 {
-    private function sendMessage(int $chatId, string $text, array $replyMarkup = null): void
+    private function sendMessage($chatId, string $text, array $replyMarkup = null): void
     {
         $params = [
             'chat_id' => $chatId,
@@ -20,41 +20,70 @@ class TelegramController extends Controller
             $params['reply_markup'] = json_encode($replyMarkup);
         }
 
-        Http::withOptions(['verify' => false])
-            ->post('https://api.telegram.org/bot' . config('services.telegram.bot_token') . '/sendMessage', $params);
+        try {
+            $response = Http::withOptions(['verify' => false])
+                ->timeout(10)
+                ->post('https://api.telegram.org/bot' . config('services.telegram.bot_token') . '/sendMessage', $params);
+
+            if (!$response->successful()) {
+                \Log::error('Telegram sendMessage failed', [
+                    'chat_id' => $chatId,
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Telegram sendMessage exception: ' . $e->getMessage());
+        }
     }
 
     public function handle(Request $request)
     {
-        $update = $request->all();
-        $message = $update['message'] ?? null;
+        try {
+            $update = $request->all();
 
-        if (!$message) {
+            \Log::info('Telegram webhook received', [
+                'update_id' => $update['update_id'] ?? null,
+                'from' => $update['message']['from']['id'] ?? 'unknown',
+                'type' => isset($update['message']['contact']) ? 'contact' : (isset($update['message']['text']) ? 'text' : 'other'),
+                'text' => $update['message']['text'] ?? null,
+            ]);
+
+            $message = $update['message'] ?? null;
+
+            if (!$message) {
+                return response()->json(['ok' => true]);
+            }
+
+            $chatId = $message['chat']['id'];
+            $telegramId = $message['from']['id'];
+
+            // Команда /start
+            if (isset($message['text']) && str_starts_with($message['text'], '/start')) {
+                $this->handleStart($chatId, $telegramId);
+                return response()->json(['ok' => true]);
+            }
+
+            // Поделились контактом (номером телефона)
+            if (isset($message['contact'])) {
+                $this->handleContact($chatId, $telegramId, $message['contact']);
+                return response()->json(['ok' => true]);
+            }
+
+            // Текстовое сообщение — может быть ФИО или email
+            if (isset($message['text'])) {
+                $this->handleText($chatId, $telegramId, $message['text']);
+                return response()->json(['ok' => true]);
+            }
+
+            return response()->json(['ok' => true]);
+        } catch (\Exception $e) {
+            \Log::error('Telegram webhook error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
+            // ВСЕГДА возвращаем 200, иначе Telegram перестанет слать
             return response()->json(['ok' => true]);
         }
-
-        $chatId = $message['chat']['id'];
-        $telegramId = $message['from']['id'];
-
-        // Команда /start
-        if (isset($message['text']) && str_starts_with($message['text'], '/start')) {
-            $this->handleStart($chatId, $telegramId);
-            return response()->json(['ok' => true]);
-        }
-
-        // Поделились контактом (номером телефона)
-        if (isset($message['contact'])) {
-            $this->handleContact($chatId, $telegramId, $message['contact']);
-            return response()->json(['ok' => true]);
-        }
-
-        // Текстовое сообщение — может быть ФИО или email
-        if (isset($message['text'])) {
-            $this->handleText($chatId, $telegramId, $message['text']);
-            return response()->json(['ok' => true]);
-        }
-
-        return response()->json(['ok' => true]);
     }
 
     private function handleStart(int $chatId, int $telegramId): void
