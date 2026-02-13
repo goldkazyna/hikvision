@@ -122,7 +122,7 @@
 
     <script src="/js/ort.js"></script>
     <script src="/js/vad-bundle.min.js"></script>
-    <script src="/js/quiz.js?v=9"></script>
+    <script src="/js/quiz.js?v=10"></script>
 
 </body>
 </html>

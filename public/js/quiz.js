@@ -290,10 +290,10 @@ async function initVAD() {
         vadInstance = await vad.MicVAD.new({
             workletURL: '/js/vad.worklet.bundle.min.js',
             modelURL: '/js/silero_vad.onnx',
-            positiveSpeechThreshold: 0.90,
-            negativeSpeechThreshold: 0.45,
-            minSpeechFrames: 3,
-            redemptionFrames: 8,
+            positiveSpeechThreshold: 0.95,
+            negativeSpeechThreshold: 0.60,
+            minSpeechFrames: 5,
+            redemptionFrames: 5,
             onSpeechStart: function() {
                 micCapsule.classList.add('recording');
                 micLabel.textContent = 'Запись...';
@@ -309,7 +309,7 @@ async function initVAD() {
                 var duration = (audio.length / 16000).toFixed(2);
                 console.log('=== ГОЛОС ===  громкость: ' + avgVolume.toFixed(4) + '  |  длительность: ' + duration + 's');
 
-                if (avgVolume < 0.005) {
+                if (avgVolume < 0.015) {
                     // Слишком тихо — сбрасываем микрофон
                     micCapsule.classList.remove('recording');
                     micLabel.textContent = 'Говорите громче';
