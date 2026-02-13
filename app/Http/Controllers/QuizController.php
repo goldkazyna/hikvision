@@ -203,6 +203,40 @@ class QuizController extends Controller
     }
 
     /**
+     * Проверить код участника (текстовый ввод)
+     */
+    public function checkCodeText(Request $request)
+    {
+        $request->validate(['code' => 'required|string']);
+
+        $code = trim($request->input('code'));
+
+        // Секретный код сброса
+        if ($code === '00557799') {
+            return response()->json(['status' => 'reset']);
+        }
+
+        $user = User::where('code', $code)->first();
+
+        if (!$user) {
+            return response()->json(['status' => 'not_found', 'code' => $code]);
+        }
+
+        if ($user->code_used) {
+            return response()->json(['status' => 'used', 'code' => $code]);
+        }
+
+        $user->code_used = true;
+        $user->save();
+
+        return response()->json([
+            'status' => 'ok',
+            'code' => $code,
+            'user_name' => $user->first_name,
+        ]);
+    }
+
+    /**
      * Получить случайную реакцию по типу (correct/wrong)
      */
     public function reaction(string $type)

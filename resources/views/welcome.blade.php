@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Hikvision Quiz</title>
-    <link rel="stylesheet" href="/css/style.css?v=2">
+    <link rel="stylesheet" href="/css/style.css?v=3">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -67,6 +67,21 @@
         </div>
     </div>
 
+    <!-- Code input panel -->
+    <div class="code-panel" id="code-panel">
+        <div class="code-capsule">
+            <div class="code-icon">
+                <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <input type="text" id="code-input" placeholder="Код участника" maxlength="10" inputmode="numeric" autocomplete="off">
+            <button class="code-submit" id="code-submit" onclick="submitCode()">
+                <span>OK</span>
+                <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+        </div>
+        <div class="code-hint" id="code-hint">Введите код, полученный в Telegram боте</div>
+    </div>
+
     <!-- Mic panel -->
     <div class="mic-panel" id="mic-panel">
         <div class="mic-capsule" id="mic-capsule" onclick="toggleRecording()">
@@ -122,7 +137,7 @@
 
     <script src="/js/ort.js"></script>
     <script src="/js/vad-bundle.min.js"></script>
-    <script src="/js/quiz.js?v=12"></script>
+    <script src="/js/quiz.js?v=13"></script>
 
 </body>
 </html>

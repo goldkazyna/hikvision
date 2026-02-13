@@ -243,9 +243,118 @@ function playIntroOnly() {
         videoActive.muted = true;
         subtitlesText.innerHTML = introSubs[introSubs.length - 1][2];
         document.getElementById('sub-final').classList.remove('hidden-sub');
-        showMic();
+        showCodeInput();
     };
 }
+
+// ===== Code input =====
+
+function showCodeInput() {
+    var panel = document.getElementById('code-panel');
+    var input = document.getElementById('code-input');
+    var hint = document.getElementById('code-hint');
+    panel.classList.add('visible');
+    input.value = '';
+    hint.textContent = 'Введите код, полученный в Telegram боте';
+    hint.className = 'code-hint';
+    input.focus();
+}
+
+function hideCodeInput() {
+    document.getElementById('code-panel').classList.remove('visible');
+}
+
+function submitCode() {
+    var input = document.getElementById('code-input');
+    var hint = document.getElementById('code-hint');
+    var code = input.value.trim();
+
+    if (!code) {
+        hint.textContent = 'Введите код';
+        hint.className = 'code-hint error';
+        input.focus();
+        return;
+    }
+
+    // Секретный код сброса
+    if (code === SECRET_CODE) {
+        hideCodeInput();
+        hideSubtitles();
+        resetQuiz();
+        return;
+    }
+
+    // Блокируем кнопку
+    var btn = document.getElementById('code-submit');
+    btn.disabled = true;
+    hint.textContent = 'Проверяю код...';
+    hint.className = 'code-hint';
+
+    var csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+    fetch('/quiz/check-code-text', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': csrfToken,
+        },
+        body: JSON.stringify({ code: code }),
+    })
+    .then(function(resp) { return resp.json(); })
+    .then(function(data) {
+        btn.disabled = false;
+
+        if (data.status === 'reset') {
+            hideCodeInput();
+            hideSubtitles();
+            resetQuiz();
+            return;
+        }
+
+        if (data.status === 'ok') {
+            userCode = data.code;
+            hint.textContent = 'Код принят!';
+            hint.className = 'code-hint success';
+            setTimeout(function() {
+                hideCodeInput();
+                hideSubtitles();
+                playVideo('/videos/ok-code.mp4', okCodeSubs, function() {
+                    playCurrentQuestion();
+                });
+            }, 800);
+        } else if (data.status === 'used') {
+            hideCodeInput();
+            hideSubtitles();
+            playVideoSimple('/videos/used-code.mp4', 'Этот код уже был использован. Спасибо за участие!', function() {
+                resetQuiz();
+            });
+        } else if (data.status === 'not_found') {
+            codeAttempts++;
+            if (codeAttempts >= 3) {
+                hideCodeInput();
+                hideSubtitles();
+                playVideoSimple('/videos/repeat-code.mp4', 'К сожалению этот код не зарегистрирован. Пожалуйста, пройдите регистрацию по QR-коду на стенде.', function() {
+                    resetQuiz();
+                });
+            } else {
+                hint.textContent = 'Код не найден. Попытка ' + codeAttempts + ' из 3';
+                hint.className = 'code-hint error';
+                input.value = '';
+                input.focus();
+            }
+        }
+    })
+    .catch(function(err) {
+        btn.disabled = false;
+        hint.textContent = 'Ошибка сервера. Попробуйте ещё раз';
+        hint.className = 'code-hint error';
+        console.error('Code check error:', err);
+    });
+}
+
+// Enter для отправки кода
+document.getElementById('code-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') submitCode();
+});
 
 // ===== Mic (VAD) =====
 
