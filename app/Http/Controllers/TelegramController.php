@@ -141,7 +141,7 @@ class TelegramController extends Controller
             'first_name' => '',
             'last_name' => '',
             'email' => '',
-            'code' => '',
+            'code' => null,
         ]);
 
         $this->sendMessage($chatId,
@@ -160,7 +160,7 @@ class TelegramController extends Controller
         }
 
         // Уже полностью зарегистрирован
-        if ($user->code) {
+        if ($user->code !== null && $user->code !== '') {
             $this->sendMessage($chatId,
                 "Вы уже зарегистрированы!\n\nВаш код участника: <b>{$user->code}</b>\n\nНазовите этот код на стенде для начала викторины."
             );
