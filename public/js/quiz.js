@@ -287,6 +287,10 @@ function audioToWav(float32Array, sampleRate) {
 
 async function initVAD() {
     try {
+        var vadFrameCount = 0;
+        var vadSpeechStartTime = null;
+        var vadMaxProb = 0;
+
         vadInstance = await vad.MicVAD.new({
             workletURL: '/js/vad.worklet.bundle.min.js',
             modelURL: '/js/silero_vad.onnx',
@@ -294,13 +298,31 @@ async function initVAD() {
             negativeSpeechThreshold: 0.75,
             minSpeechFrames: 6,
             redemptionFrames: 4,
+            onFrameProcessed: function(probs) {
+                vadFrameCount++;
+                var p = probs.isSpeech;
+                if (p > vadMaxProb) vadMaxProb = p;
+                // Логируем каждый 5-й фрейм если вероятность > 0.3 (шум/голос)
+                if (p > 0.3 && vadFrameCount % 5 === 0) {
+                    console.log('[VAD] frame #' + vadFrameCount + '  prob: ' + p.toFixed(4));
+                }
+                // Логируем высокие значения всегда
+                if (p > 0.9) {
+                    console.log('[VAD] HIGH prob: ' + p.toFixed(4) + '  frame #' + vadFrameCount);
+                }
+            },
             onSpeechStart: function() {
+                vadSpeechStartTime = Date.now();
+                console.log('[VAD] === SPEECH START ===  maxProb до старта: ' + vadMaxProb.toFixed(4));
+                vadMaxProb = 0;
                 micCapsule.classList.add('recording');
                 micLabel.textContent = 'Запись...';
                 micHint.textContent = 'Слушаю';
                 if (recordingMode === 'answer') pauseTimer();
             },
             onSpeechEnd: function(audio) {
+                var speechDuration = vadSpeechStartTime ? ((Date.now() - vadSpeechStartTime) / 1000).toFixed(2) : '?';
+                console.log('[VAD] === SPEECH END ===  длительность речи: ' + speechDuration + 's');
                 // Проверяем громкость — если тихо (далёкий голос), игнорируем
                 let sum = 0;
                 for (let i = 0; i < audio.length; i++) sum += Math.abs(audio[i]);
