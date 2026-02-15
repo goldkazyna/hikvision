@@ -19,3 +19,6 @@ Route::post('/quiz/check-code-text', [QuizController::class, 'checkCodeText']);
 Route::post('/quiz/save-result', [QuizController::class, 'saveResult']);
 Route::post('/quiz/check-answer', [QuizController::class, 'checkAnswer']);
 Route::post('/telegram/webhook', [TelegramController::class, 'handle']);
+
+Route::get('/export', [\App\Http\Controllers\ExportController::class, 'page']);
+Route::get('/export/users', [\App\Http\Controllers\ExportController::class, 'users']);
